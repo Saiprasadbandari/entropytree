@@ -1,11 +1,11 @@
 # Decision Tree from Scratch (entropy + information gain)
 
 - **GitHub:** https://github.com/Saiprasadbandari/entropytree
-- **PyPI (bonus):** https://pypi.org/project/entropytree/
+- **PyPI (bonus):** https://pypi.org/project/sai-entropytree/
 
 ## What I built
 
-`entropytree` is a binary decision tree classifier written from scratch with NumPy only (no sklearn inside the package).
+`sai-entropytree` (imported as `entropytree`) is a binary decision tree classifier written from scratch with NumPy only (no sklearn inside the package).
 
 - **Entropy:** `H(y) = -Σ p_i log2 p_i`
 - **Information gain:** `IG = H(parent) - (n_L/n)·H(left) - (n_R/n)·H(right)`
@@ -13,7 +13,7 @@
 - **Stopping:** node is pure, `max_depth` reached, fewer than `min_samples_split` samples, or best gain below `min_gain`.
 - **Size hyperparameter:** `max_depth` (plus `min_samples_split`, `min_gain`).
 - **Bonus – display:** `tree.display(feature_names)` / `export_text()` prints the tree with class counts per leaf.
-- **Bonus – package:** `pyproject.toml` with a `src/` layout; builds sdist and wheel and passes `twine check`. Install with `pip install entropytree`.
+- **Bonus – package:** `pyproject.toml` with a `src/` layout; builds sdist and wheel and passes `twine check`. Install with `pip install sai-entropytree`.
 
 ## Usage
 

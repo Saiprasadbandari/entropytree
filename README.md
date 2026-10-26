@@ -3,7 +3,7 @@
 A decision tree classifier written from scratch (NumPy only) using Shannon entropy and information gain.
 
 ```bash
-pip install entropytree
+pip install sai-entropytree
 ```
 
 ```python
