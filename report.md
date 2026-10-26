@@ -1,7 +1,7 @@
 # Decision Tree from Scratch (entropy + information gain)
 
-- **GitHub:** https://github.com/<your-username>/entropytree  <!-- TODO: fill in -->
-- **PyPI (bonus):** https://pypi.org/project/entropytree/  <!-- TODO: fill in after upload -->
+- **GitHub:** https://github.com/Saiprasadbandari/entropytree
+- **PyPI (bonus):** https://pypi.org/project/entropytree/
 
 ## What I built
 
