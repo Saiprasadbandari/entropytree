@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "entropytree"
+version = "0.1.0"
+description = "A decision tree classifier from scratch using entropy and information gain"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = ["numpy"]
+license = { text = "MIT" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
