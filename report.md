@@ -5,7 +5,7 @@
 
 ## What I built
 
-`sai-entropytree` (imported as `entropytree`) is a binary decision tree classifier written from scratch with NumPy only (no sklearn inside the package).
+`sai-entropytree` (imported as `entropytree`) is a binary decision tree classifier written from scratch in pure Python: only the standard library (`math`, `collections`) is imported, with no NumPy, sklearn or any other external library.
 
 - **Entropy:** `H(y) = -Σ p_i log2 p_i`
 - **Information gain:** `IG = H(parent) - (n_L/n)·H(left) - (n_R/n)·H(right)`
@@ -18,11 +18,12 @@
 ## Usage
 
 ```python
-from sklearn.datasets import load_iris
 from entropytree import DecisionTree
-iris = load_iris()
-tree = DecisionTree(max_depth=2).fit(iris.data, iris.target)
-tree.display(iris.feature_names)
+
+X = [[2.0, 1.0], [3.0, 1.5], [6.0, 4.0], [7.0, 4.5], [8.0, 5.0]]
+y = ["small", "small", "big", "big", "big"]
+tree = DecisionTree(max_depth=2).fit(X, y)
+tree.display(["length", "width"])
 ```
 
 ```
@@ -35,7 +36,9 @@ tree.display(iris.feature_names)
 |   |   |--- class: 2  {1: 1, 2: 45}
 ```
 
-## Effect of tree size (test accuracy, 70/30 split, random_state=0)
+## Effect of tree size
+
+(sklearn was used only outside the package, to load the sample datasets and as a reference to compare against.) (test accuracy, 70/30 split, random_state=0)
 
 | max_depth | iris (mine) | iris (sklearn, entropy) | breast cancer (mine) | breast cancer (sklearn) |
 |---|---|---|---|---|
@@ -50,5 +53,5 @@ Very shallow trees underfit (iris depth 1: 0.60). Accuracy rises quickly, then p
 ## Limitations
 
 - Greedy splitting cannot learn XOR-like patterns (every first split has zero gain).
-- Numeric features only; no pruning; O(n²·d) split search, fine for small datasets.
-- Tests: `pytest` (entropy, information gain, fit and depth control).
+- Numeric features only; no pruning. Split search sorts each feature and slides the threshold with running class counts, which is fast enough for small datasets.
+- Tests use the standard `unittest` module (entropy, information gain, fit and depth control): `PYTHONPATH=src python -m unittest discover -s tests`.

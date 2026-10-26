@@ -1,19 +1,21 @@
 # entropytree
 
-A decision tree classifier written from scratch (NumPy only) using Shannon entropy and information gain.
+A decision tree classifier written from scratch in pure Python (standard library only, no NumPy or other dependencies) using Shannon entropy and information gain.
 
 ```bash
 pip install sai-entropytree
 ```
 
 ```python
-from sklearn.datasets import load_iris
 from entropytree import DecisionTree
 
-iris = load_iris()
-tree = DecisionTree(max_depth=2).fit(iris.data, iris.target)
-print(tree.score(iris.data, iris.target))
-tree.display(iris.feature_names)
+X = [[2.0, 1.0], [3.0, 1.5], [6.0, 4.0], [7.0, 4.5], [8.0, 5.0]]
+y = ["small", "small", "big", "big", "big"]
+
+tree = DecisionTree(max_depth=2).fit(X, y)
+print(tree.predict([[2.5, 1.2], [7.5, 4.8]]))   # ['small', 'big']
+print(tree.score(X, y))                          # 1.0
+tree.display(["length", "width"])
 ```
 
 ## Hyperparameters

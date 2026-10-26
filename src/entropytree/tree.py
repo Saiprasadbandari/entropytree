@@ -1,32 +1,44 @@
-"""Decision tree classifier built from scratch with entropy and information gain."""
-import numpy as np
+"""Decision tree classifier built from scratch with entropy and information gain.
+
+Pure Python: only the standard library (math, collections) is used.
+"""
+import math
+from collections import Counter
 
 
-def entropy(y):
-    """Shannon entropy (base 2) of a label array."""
-    _, counts = np.unique(y, return_counts=True)
-    p = counts / counts.sum()
-    return float(-np.sum(p * np.log2(p)))
+def _entropy_from_counts(counts, total):
+    """Entropy from a {class: count} mapping, given the total number of samples."""
+    h = 0.0
+    for c in counts.values():
+        if c > 0:
+            p = c / total
+            h -= p * math.log2(p)
+    return h
 
 
-def information_gain(y, y_left, y_right):
+def entropy(labels):
+    """Shannon entropy (base 2) of a list of labels: H = -sum(p * log2(p))."""
+    if len(labels) == 0:
+        return 0.0
+    return _entropy_from_counts(Counter(labels), len(labels))
+
+
+def information_gain(parent, left, right):
     """Entropy of the parent minus the weighted entropy of the two children."""
-    n = len(y)
-    child = len(y_left) / n * entropy(y_left) + len(y_right) / n * entropy(y_right)
-    return entropy(y) - child
+    n = len(parent)
+    weighted = (len(left) / n) * entropy(left) + (len(right) / n) * entropy(right)
+    return entropy(parent) - weighted
 
 
 class _Node:
-    def __init__(self, feature=None, threshold=None, left=None, right=None,
-                 value=None, counts=None):
-        self.feature = feature
-        self.threshold = threshold
-        self.left = left
-        self.right = right
-        self.value = value      # predicted class (set on every node)
-        self.counts = counts    # class counts at this node
+    def __init__(self, prediction, counts):
+        self.prediction = prediction   # majority class at this node
+        self.counts = counts           # {class: count} of the samples here
+        self.feature = None            # feature index used to split (None = leaf)
+        self.threshold = None          # go left if x[feature] <= threshold
+        self.left = None
+        self.right = None
 
-    @property
     def is_leaf(self):
         return self.left is None
 
@@ -37,11 +49,11 @@ class DecisionTree:
     Parameters
     ----------
     max_depth : int or None
-        Size hyperparameter: maximum depth of the tree (None = unlimited).
+        Size hyperparameter: maximum depth of the tree (None = no limit).
     min_samples_split : int
-        Minimum samples a node needs to be split.
+        A node with fewer samples than this is not split.
     min_gain : float
-        Minimum information gain required to make a split.
+        A split must improve information gain by at least this much.
     """
 
     def __init__(self, max_depth=None, min_samples_split=2, min_gain=1e-12):
@@ -49,80 +61,117 @@ class DecisionTree:
         self.min_samples_split = min_samples_split
         self.min_gain = min_gain
 
+    # ---- training -------------------------------------------------------
     def fit(self, X, y):
-        X = np.asarray(X, dtype=float)
-        y = np.asarray(y)
-        self.classes_ = np.unique(y)
-        self.n_features_ = X.shape[1]
-        self.root_ = self._grow(X, y, 0)
+        X = [list(row) for row in X]
+        # Plain Python labels (also turns e.g. numpy scalars into int/str for clean printing).
+        y = [v.item() if hasattr(v, "item") else v for v in y]
+        self.n_features_ = len(X[0])
+        self.root_ = self._grow(X, y, depth=0)
         return self
 
     def _best_split(self, X, y):
-        best_gain, best_feat, best_thr = 0.0, None, None
+        """Try every feature and every threshold; return the best by information gain."""
         n = len(y)
-        for f in range(X.shape[1]):
-            order = np.argsort(X[:, f], kind="stable")
-            xs, ys = X[order, f], y[order]
-            for i in range(1, n):
-                if xs[i] == xs[i - 1]:
-                    continue
-                gain = information_gain(ys, ys[:i], ys[i:])
+        parent_entropy = entropy(y)
+        best_gain, best_feature, best_threshold = 0.0, None, None
+
+        for f in range(self.n_features_):
+            # Sort samples by this feature, then slide the split point left to right,
+            # moving one sample at a time from the right side to the left side.
+            order = sorted(range(n), key=lambda i: X[i][f])
+            left_counts = Counter()
+            right_counts = Counter(y)
+
+            for k in range(1, n):
+                label = y[order[k - 1]]
+                left_counts[label] += 1
+                right_counts[label] -= 1
+
+                lo = X[order[k - 1]][f]
+                hi = X[order[k]][f]
+                if lo == hi:
+                    continue  # cannot put a threshold between equal values
+
+                child_entropy = (k / n) * _entropy_from_counts(left_counts, k) \
+                    + ((n - k) / n) * _entropy_from_counts(right_counts, n - k)
+                gain = parent_entropy - child_entropy
+
                 if gain > best_gain:
-                    best_gain, best_feat = gain, f
-                    best_thr = (xs[i] + xs[i - 1]) / 2
-        return best_gain, best_feat, best_thr
+                    best_gain, best_feature = gain, f
+                    best_threshold = (lo + hi) / 2
+
+        return best_gain, best_feature, best_threshold
 
     def _grow(self, X, y, depth):
-        classes, counts = np.unique(y, return_counts=True)
-        node = _Node(value=classes[np.argmax(counts)],
-                     counts=dict(zip(classes.tolist(), counts.tolist())))
-        if (len(classes) == 1
-                or len(y) < self.min_samples_split
-                or (self.max_depth is not None and depth >= self.max_depth)):
+        counts = dict(Counter(y))
+        node = _Node(max(counts, key=counts.get), counts)
+
+        # Stopping rules: pure node, too small, or tree is deep enough.
+        if len(counts) == 1 or len(y) < self.min_samples_split:
             return node
-        gain, feat, thr = self._best_split(X, y)
-        if feat is None or gain < self.min_gain:
+        if self.max_depth is not None and depth >= self.max_depth:
             return node
-        mask = X[:, feat] <= thr
-        node.feature, node.threshold = feat, thr
-        node.left = self._grow(X[mask], y[mask], depth + 1)
-        node.right = self._grow(X[~mask], y[~mask], depth + 1)
+
+        gain, feature, threshold = self._best_split(X, y)
+        if feature is None or gain < self.min_gain:
+            return node
+
+        left_X, left_y, right_X, right_y = [], [], [], []
+        for row, label in zip(X, y):
+            if row[feature] <= threshold:
+                left_X.append(row)
+                left_y.append(label)
+            else:
+                right_X.append(row)
+                right_y.append(label)
+
+        node.feature, node.threshold = feature, threshold
+        node.left = self._grow(left_X, left_y, depth + 1)
+        node.right = self._grow(right_X, right_y, depth + 1)
         return node
 
+    # ---- prediction -----------------------------------------------------
     def predict(self, X):
-        X = np.asarray(X, dtype=float)
-        return np.array([self._predict_one(x) for x in X])
+        return [self._predict_one(list(row)) for row in X]
 
-    def _predict_one(self, x):
+    def _predict_one(self, row):
         node = self.root_
-        while not node.is_leaf:
-            node = node.left if x[node.feature] <= node.threshold else node.right
-        return node.value
+        while not node.is_leaf():
+            node = node.left if row[node.feature] <= node.threshold else node.right
+        return node.prediction
 
     def score(self, X, y):
-        return float(np.mean(self.predict(X) == np.asarray(y)))
+        """Accuracy."""
+        predictions = self.predict(X)
+        y = list(y)
+        return sum(p == t for p, t in zip(predictions, y)) / len(y)
 
     def get_depth(self):
-        def d(n):
-            return 0 if n.is_leaf else 1 + max(d(n.left), d(n.right))
-        return d(self.root_)
+        def depth(node):
+            if node.is_leaf():
+                return 0
+            return 1 + max(depth(node.left), depth(node.right))
+        return depth(self.root_)
 
+    # ---- display --------------------------------------------------------
     def export_text(self, feature_names=None):
         """Return the tree as an indented text string."""
         names = feature_names or [f"x{i}" for i in range(self.n_features_)]
         lines = []
 
-        def rec(n, indent):
+        def walk(node, indent):
             pad = "|   " * indent
-            if n.is_leaf:
-                lines.append(f"{pad}|--- class: {n.value}  {n.counts}")
+            if node.is_leaf():
+                lines.append(f"{pad}|--- class: {node.prediction}  {node.counts}")
                 return
-            lines.append(f"{pad}|--- {names[n.feature]} <= {n.threshold:.3f}")
-            rec(n.left, indent + 1)
-            lines.append(f"{pad}|--- {names[n.feature]} >  {n.threshold:.3f}")
-            rec(n.right, indent + 1)
+            name = names[node.feature]
+            lines.append(f"{pad}|--- {name} <= {node.threshold:.3f}")
+            walk(node.left, indent + 1)
+            lines.append(f"{pad}|--- {name} >  {node.threshold:.3f}")
+            walk(node.right, indent + 1)
 
-        rec(self.root_, 0)
+        walk(self.root_, 0)
         return "\n".join(lines)
 
     def display(self, feature_names=None):
